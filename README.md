@@ -38,6 +38,14 @@ uv run mze list
 uv run mze delete <name>
 ```
 
+#### Install mze as a tool
+Install `mze` into a dedicated environment and create a wrapper script in your bin directory. Run this from the project root:
+```bash
+uv run mze install [--prefix <dir>] [--bin <dir>]
+```
+- `--prefix`: Base directory for the environment (default: `~/.mze`).
+- `--bin`: Directory for the wrapper executable (default: `~/.local/bin`).
+
 ## Setup
 ```bash
 uv sync

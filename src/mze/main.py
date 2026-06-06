@@ -21,17 +21,21 @@ def parse_template(template: str) -> int:
     formatter = Formatter()
     max_arity = 0
     auto_count = 0
-    has_explicit = False
 
     try:
-        for literal_text, field_name, format_spec, conversion in formatter.parse(template):
+        fields = list(formatter.parse(template))
+
+        # Check for mixed positional arguments
+        has_auto = any(f[1] == "" for f in fields if f[1] is not None)
+        has_explicit = any(f[1].isdigit() for f in fields if f[1] is not None)
+        if has_auto and has_explicit:
+            raise ValueError("Cannot mix automatic and explicit positional arguments in template")
+
+        for literal_text, field_name, format_spec, conversion in fields:
             if field_name is not None:
                 if field_name == "":
-                    if has_explicit:
-                        raise ValueError("Cannot mix automatic and explicit positional arguments in template")
                     auto_count += 1
                 elif field_name.isdigit():
-                    has_explicit = True
                     idx = int(field_name)
                     max_arity = max(max_arity, idx + 1)
                 else:
@@ -41,7 +45,9 @@ def parse_template(template: str) -> int:
             return max_arity
         return auto_count
     except ValueError as e:
-        raise e
+        if "Cannot mix automatic" in str(e) or "Invalid field name" in str(e):
+            raise e
+        raise ValueError(f"Invalid template syntax: {e}")
     except Exception as e:
         raise ValueError(f"Invalid template syntax: {e}")
 
@@ -159,6 +165,47 @@ def run_command(name: str, files: list[str]) -> None:
         print(f"Execution error: {e}", file=sys.stderr)
         sys.exit(1)
 
+def install_mze(args) -> None:
+    prefix_path = Path(args.prefix).expanduser().resolve()
+    bin_path = Path(args.bin).expanduser().resolve()
+    venv_path = prefix_path / "env"
+    wrapper_path = bin_path / "mze"
+
+    try:
+        print(f"Creating environment at {venv_path}...")
+        prefix_path.mkdir(parents=True, exist_ok=True)
+        subprocess.run([sys.executable, "-m", "venv", str(venv_path)], check=True)
+
+        print("Installing package into environment...")
+        if not Path("pyproject.toml").exists():
+            print("Error: pyproject.toml not found in current directory. Please run this command from the project root.", file=sys.stderr)
+            sys.exit(1)
+
+        venv_python = venv_path / "bin" / "python"
+        subprocess.run([str(venv_python), "-m", "pip", "install", "."], cwd=Path.cwd(), check=True)
+
+        print(f"Creating wrapper at {wrapper_path}...")
+        bin_path.mkdir(parents=True, exist_ok=True)
+
+        # We use the executable created by pip in the venv
+        venv_mze_bin = venv_path / "bin" / "mze"
+        wrapper_content = f"#!/bin/sh\nexec {venv_mze_bin} \"$@\"\n"
+        wrapper_path.write_text(wrapper_content)
+        wrapper_path.chmod(0o755)
+
+        print(f"Successfully installed mze to {prefix_path}")
+        print(f"Wrapper created at {wrapper_path}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"Installation failed during a subprocess call: {e}", file=sys.stderr)
+        sys.exit(1)
+    except PermissionError as e:
+        print(f"Permission denied: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}", file=sys.stderr)
+        sys.exit(1)
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="mze: Memoizing command executor")
     subparsers = parser.add_subparsers(dest="command")
@@ -176,6 +223,10 @@ def main() -> None:
     delete_parser = subparsers.add_parser("delete", help="Delete a saved command")
     delete_parser.add_argument("name", help="Name of the saved command to delete")
 
+    install_parser = subparsers.add_parser("install", help="Install mze environment and wrapper")
+    install_parser.add_argument("--prefix", default=str(Path.home() / ".mze"), help="Base directory for the mze environment")
+    install_parser.add_argument("--bin", default=str(Path.home() / ".local" / "bin"), help="Directory for the wrapper executable")
+
     args = parser.parse_args()
 
     if args.command == "save":
@@ -186,6 +237,8 @@ def main() -> None:
         list_commands()
     elif args.command == "delete":
         delete_command(args.name)
+    elif args.command == "install":
+        install_mze(args)
     else:
         parser.print_help()
 
