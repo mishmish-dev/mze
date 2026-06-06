@@ -1,4 +1,4 @@
-import argparse
+import click
 import subprocess
 import sys
 import os
@@ -166,9 +166,9 @@ def run_command(name: str, files: list[str]) -> None:
         print(f"Execution error: {e}", file=sys.stderr)
         sys.exit(1)
 
-def install_mze(args) -> None:
-    prefix_path = Path(args.prefix).expanduser().resolve()
-    bin_path = Path(args.bin).expanduser().resolve()
+def install_mze(prefix: str, bin: str) -> None:
+    prefix_path = Path(prefix).expanduser().resolve()
+    bin_path = Path(bin).expanduser().resolve()
     venv_path = prefix_path / "env"
     wrapper_path = bin_path / "mze"
 
@@ -207,41 +207,37 @@ def install_mze(args) -> None:
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
         sys.exit(1)
 
+@click.group()
 def main() -> None:
-    parser = argparse.ArgumentParser(description="mze: Memoizing command executor")
-    subparsers = parser.add_subparsers(dest="command")
+    """mze: Memoizing command executor"""
+    pass
 
-    save_parser = subparsers.add_parser("save", help="Save a command template")
-    save_parser.add_argument("name", help="Name of the saved command")
-    save_parser.add_argument("cmd", help="The command template to run")
+@main.command("save", help="Save a command template")
+@click.argument("name")
+@click.argument("cmd")
+def save(name: str, cmd: str) -> None:
+    save_command(name, cmd)
 
-    run_parser = subparsers.add_parser("run", help="Run a saved command with files")
-    run_parser.add_argument("name", help="Name of the saved command")
-    run_parser.add_argument("files", nargs="*", help="Files to pass as arguments")
+@main.command("run", help="Run a saved command with files")
+@click.argument("name")
+@click.argument("files", nargs=-1)
+def run(name: str, files: tuple[str, ...]) -> None:
+    run_command(name, list(files))
 
-    subparsers.add_parser("list", help="List saved commands")
+@main.command("list", help="List saved commands")
+def list_cmds() -> None:
+    list_commands()
 
-    delete_parser = subparsers.add_parser("delete", help="Delete a saved command")
-    delete_parser.add_argument("name", help="Name of the saved command to delete")
+@main.command("delete", help="Delete a saved command")
+@click.argument("name")
+def delete(name: str) -> None:
+    delete_command(name)
 
-    install_parser = subparsers.add_parser("install", help="Install mze environment and wrapper")
-    install_parser.add_argument("--prefix", default=str(Path.home() / ".mze"), help="Base directory for the mze environment")
-    install_parser.add_argument("--bin", default=str(Path.home() / ".local" / "bin"), help="Directory for the wrapper executable")
-
-    args = parser.parse_args()
-
-    if args.command == "save":
-        save_command(args.name, args.cmd)
-    elif args.command == "run":
-        run_command(args.name, args.files)
-    elif args.command == "list":
-        list_commands()
-    elif args.command == "delete":
-        delete_command(args.name)
-    elif args.command == "install":
-        install_mze(args)
-    else:
-        parser.print_help()
+@main.command("install", help="Install mze environment and wrapper")
+@click.option("--prefix", default=str(Path.home() / ".mze"), help="Base directory for the mze environment")
+@click.option("--bin", default=str(Path.home() / ".local" / "bin"), help="Directory for the wrapper executable")
+def install(prefix: str, bin: str) -> None:
+    install_mze(prefix, bin)
 
 if __name__ == "__main__":
     main()

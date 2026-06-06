@@ -4,8 +4,9 @@ version = "0.1.0"
 description = "Memoizing command executor"
 requires-python = ">=3.14, <3.15"
 dependencies = [
-    "duckdb",
-    "blake3",
+    "duckdb>=1.5.3, <2.0.0",
+    "blake3>=1.0.8, <2.0.0",
+    "click>=8.4.1, <9.0.0",
 ]
 
 [project.scripts]
