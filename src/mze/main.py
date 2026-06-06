@@ -174,7 +174,7 @@ def install_mze(args) -> None:
     try:
         print(f"Creating environment at {venv_path}...")
         prefix_path.mkdir(parents=True, exist_ok=True)
-        subprocess.run([sys.executable, "-m", "venv", str(venv_path)], check=True)
+        subprocess.run(["uv", "venv", str(venv_path)], check=True)
 
         print("Installing package into environment...")
         if not Path("pyproject.toml").exists():
@@ -182,7 +182,7 @@ def install_mze(args) -> None:
             sys.exit(1)
 
         venv_python = venv_path / "bin" / "python"
-        subprocess.run([str(venv_python), "-m", "pip", "install", "."], cwd=Path.cwd(), check=True)
+        subprocess.run(["uv", "pip", "install", ".", "--python", str(venv_python)], cwd=Path.cwd(), check=True)
 
         print(f"Creating wrapper at {wrapper_path}...")
         bin_path.mkdir(parents=True, exist_ok=True)
