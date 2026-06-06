@@ -181,6 +181,8 @@ def install_mze(args) -> None:
             sys.exit(1)
 
         env = {"UV_PROJECT_ENVIRONMENT": str(venv_path), **os.environ}
+        if "VIRTUAL_ENV" in env:
+            del env["VIRTUAL_ENV"]
         subprocess.run(["uv", "sync"], env=env, cwd=Path.cwd(), check=True)
 
         print(f"Creating wrapper at {wrapper_path}...")
