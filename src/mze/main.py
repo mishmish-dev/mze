@@ -9,8 +9,7 @@ from string import Formatter
 
 from mze.file_list_hash import compute_hash
 
-DB_DIR = Path.home() / ".mze"
-DB_PATH = DB_DIR / "mze.duckdb"
+DEFAULT_DB_DIR = Path.home() / ".mze"
 MAX_OUTPUT_SIZE = 10 * 1024 * 1024  # 10 MiB
 
 def parse_template(template: str) -> int:
@@ -52,9 +51,10 @@ def parse_template(template: str) -> int:
     except Exception as e:
         raise ValueError(f"Invalid template syntax: {e}")
 
-def get_db() -> duckdb.DuckDBPyConnection:
-    DB_DIR.mkdir(parents=True, exist_ok=True)
-    return duckdb.connect(str(DB_PATH))
+def get_db(db_dir: Path = DEFAULT_DB_DIR) -> duckdb.DuckDBPyConnection:
+    db_path = db_dir / "mze.duckdb"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    return duckdb.connect(str(db_path))
 
 def init_db(db: duckdb.DuckDBPyConnection) -> None:
     db.execute("""
@@ -74,20 +74,20 @@ def init_db(db: duckdb.DuckDBPyConnection) -> None:
         )
     """)
 
-def save_command(name: str, cmd: str) -> None:
+def save_command(name: str, cmd: str, db_dir: Path) -> None:
     try:
         arity = parse_template(cmd)
     except ValueError as e:
         print(f"Syntax error in command template: {e}", file=sys.stderr)
         return
 
-    db = get_db()
+    db = get_db(db_dir)
     init_db(db)
     db.execute("INSERT OR REPLACE INTO commands (name, command_template, arity) VALUES (?, ?, ?)", (name, cmd, arity))
     print(f"Saved command '{name}' with arity {arity}")
 
-def list_commands() -> None:
-    db = get_db()
+def list_commands(db_dir: Path) -> None:
+    db = get_db(db_dir)
     init_db(db)
     results = db.execute("SELECT name, command_template, arity FROM commands").fetchall()
     if not results:
@@ -96,15 +96,15 @@ def list_commands() -> None:
     for name, cmd, arity in results:
         print(f"{name} (arity {arity}): {cmd}")
 
-def delete_command(name: str) -> None:
-    db = get_db()
+def delete_command(name: str, db_dir: Path) -> None:
+    db = get_db(db_dir)
     init_db(db)
     db.execute("DELETE FROM commands WHERE name = ?", (name,))
     db.execute("DELETE FROM memoized_results WHERE command_name = ?", (name,))
     print(f"Deleted command '{name}'")
 
-def run_command(name: str, files: list[str]) -> None:
-    db = get_db()
+def run_command(name: str, files: list[str], db_dir: Path) -> None:
+    db = get_db(db_dir)
     init_db(db)
 
     res = db.execute("SELECT command_template, arity FROM commands WHERE name = ?", (name,)).fetchone()
@@ -166,15 +166,15 @@ def run_command(name: str, files: list[str]) -> None:
         print(f"Execution error: {e}", file=sys.stderr)
         sys.exit(1)
 
-def install_mze(prefix: str, bin: str) -> None:
-    prefix_path = Path(prefix).expanduser().resolve()
-    bin_path = Path(bin).expanduser().resolve()
-    venv_path = prefix_path / "env"
-    wrapper_path = bin_path / "mze"
+def install_mze(base_dir: str, bin_dir: str) -> None:
+    base_dir_path = Path(base_dir).expanduser().resolve()
+    bin_dir_path = Path(bin_dir).expanduser().resolve()
+    venv_path = base_dir_path / "env"
+    wrapper_path = bin_dir_path / "mze"
 
     try:
         print(f"Creating and synchronizing environment at {venv_path}...")
-        prefix_path.mkdir(parents=True, exist_ok=True)
+        base_dir_path.mkdir(parents=True, exist_ok=True)
 
         if not Path("pyproject.toml").exists():
             print("Error: pyproject.toml not found in current directory. Please run this command from the project root.", file=sys.stderr)
@@ -186,7 +186,7 @@ def install_mze(prefix: str, bin: str) -> None:
         subprocess.run(["uv", "sync"], env=env, cwd=Path.cwd(), check=True)
 
         print(f"Creating wrapper at {wrapper_path}...")
-        bin_path.mkdir(parents=True, exist_ok=True)
+        bin_dir_path.mkdir(parents=True, exist_ok=True)
 
         # We use the executable created by pip in the venv
         venv_mze_bin = venv_path / "bin" / "mze"
@@ -194,7 +194,7 @@ def install_mze(prefix: str, bin: str) -> None:
         wrapper_path.write_text(wrapper_content)
         wrapper_path.chmod(0o755)
 
-        print(f"Successfully installed mze to {prefix_path}")
+        print(f"Successfully installed mze to {base_dir_path}")
         print(f"Wrapper created at {wrapper_path}")
 
     except subprocess.CalledProcessError as e:
@@ -208,36 +208,43 @@ def install_mze(prefix: str, bin: str) -> None:
         sys.exit(1)
 
 @click.group()
-def main() -> None:
+@click.option("--base-dir", default=str(DEFAULT_DB_DIR), help="Base directory for mze database")
+@click.pass_context
+def main(ctx: click.Context, base_dir: str) -> None:
     """mze: Memoizing command executor"""
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj["base_dir"] = Path(base_dir).expanduser().resolve()
 
 @main.command("save", help="Save a command template")
 @click.argument("name")
 @click.argument("cmd")
-def save(name: str, cmd: str) -> None:
-    save_command(name, cmd)
+@click.pass_context
+def save(ctx: click.Context, name: str, cmd: str) -> None:
+    save_command(name, cmd, ctx.obj["base_dir"])
 
 @main.command("run", help="Run a saved command with files")
 @click.argument("name")
 @click.argument("files", nargs=-1)
-def run(name: str, files: tuple[str, ...]) -> None:
-    run_command(name, list(files))
+@click.pass_context
+def run(ctx: click.Context, name: str, files: tuple[str, ...]) -> None:
+    run_command(name, list(files), ctx.obj["base_dir"])
 
 @main.command("list", help="List saved commands")
-def list_cmds() -> None:
-    list_commands()
+@click.pass_context
+def list_cmds(ctx: click.Context) -> None:
+    list_commands(ctx.obj["base_dir"])
 
 @main.command("delete", help="Delete a saved command")
 @click.argument("name")
-def delete(name: str) -> None:
-    delete_command(name)
+@click.pass_context
+def delete(ctx: click.Context, name: str) -> None:
+    delete_command(name, ctx.obj["base_dir"])
 
 @main.command("install", help="Install mze environment and wrapper")
-@click.option("--prefix", default=str(Path.home() / ".mze"), help="Base directory for the mze environment")
-@click.option("--bin", default=str(Path.home() / ".local" / "bin"), help="Directory for the wrapper executable")
-def install(prefix: str, bin: str) -> None:
-    install_mze(prefix, bin)
+@click.option("--base-dir", default=str(DEFAULT_DB_DIR), help="Base directory for the mze environment")
+@click.option("--bin-dir", default=str(Path.home() / ".local" / "bin"), help="Directory for the wrapper executable")
+def install(base_dir: str, bin_dir: str) -> None:
+    install_mze(base_dir, bin_dir)
 
 if __name__ == "__main__":
     main()
