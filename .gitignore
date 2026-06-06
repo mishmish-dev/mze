@@ -28,3 +28,9 @@ Thumbs.db
 
 # Environment variables
 .env
+
+test_bin/
+test_empty/
+test_empty_2/
+test_perm/
+test_prefix/
