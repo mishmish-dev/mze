@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 import sys
+import os
 import duckdb
 import shlex
 from pathlib import Path
@@ -172,17 +173,15 @@ def install_mze(args) -> None:
     wrapper_path = bin_path / "mze"
 
     try:
-        print(f"Creating environment at {venv_path}...")
+        print(f"Creating and synchronizing environment at {venv_path}...")
         prefix_path.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["uv", "venv", str(venv_path)], check=True)
 
-        print("Installing package into environment...")
         if not Path("pyproject.toml").exists():
             print("Error: pyproject.toml not found in current directory. Please run this command from the project root.", file=sys.stderr)
             sys.exit(1)
 
-        venv_python = venv_path / "bin" / "python"
-        subprocess.run(["uv", "pip", "install", ".", "--python", str(venv_python)], cwd=Path.cwd(), check=True)
+        env = {"UV_PROJECT_ENVIRONMENT": str(venv_path), **os.environ}
+        subprocess.run(["uv", "sync"], env=env, cwd=Path.cwd(), check=True)
 
         print(f"Creating wrapper at {wrapper_path}...")
         bin_path.mkdir(parents=True, exist_ok=True)
