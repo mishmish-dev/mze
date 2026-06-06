@@ -2,6 +2,8 @@ import subprocess
 import sys
 import duckdb
 import shlex
+import shutil
+import os
 from pathlib import Path
 from string import Formatter
 
@@ -72,7 +74,7 @@ def init_db(db: duckdb.DuckDBPyConnection) -> None:
         )
     """)
 
-def add_command(name: str, cmd: str, db_dir: Path) -> None:
+def add_command(name: str, cmd: str, db_dir: Path, install: bool = False, bin_dir: str = "") -> None:
     try:
         arity = parse_template(cmd)
     except ValueError as e:
@@ -84,6 +86,32 @@ def add_command(name: str, cmd: str, db_dir: Path) -> None:
     db.execute("INSERT OR REPLACE INTO commands (name, command_template, arity) VALUES (?, ?, ?)", (name, cmd, arity))
     print(f"Saved command '{name}' with arity {arity}")
 
+    if install:
+        bin_dir_path = Path(bin_dir).expanduser().resolve()
+
+        # Check that mze executable is present in bin_dir
+        # The instruction was: "Check that mze executable is really present in bin_dir, error if not."
+        mze_path = bin_dir_path / "mze"
+        if not mze_path.is_file():
+            print(f"Error: mze executable not found in {bin_dir_path}, run 'mze install' first", file=sys.stderr)
+            return
+
+        wrapper_path = bin_dir_path / name
+        wrapper_content = f"#!/bin/sh\nexec {mze_path} run {name} \"$@\"\n"
+
+        try:
+            bin_dir_path.mkdir(parents=True, exist_ok=True)
+            wrapper_path.write_text(wrapper_content)
+            wrapper_path.chmod(0o755)
+            print(f"Wrapper created at {wrapper_path}")
+
+            # Check if registered in PATH
+            if shutil.which(name) != str(wrapper_path):
+                print(f"Warning: {name} might not be in your PATH or is shadowed by another command. Ensure {bin_dir_path} is in your PATH.", file=sys.stderr)
+
+        except Exception as e:
+            print(f"Error creating wrapper: {e}", file=sys.stderr)
+
 def list_commands(db_dir: Path) -> None:
     db = get_db(db_dir)
     init_db(db)
@@ -94,12 +122,26 @@ def list_commands(db_dir: Path) -> None:
     for name, cmd, arity in results:
         print(f"{name} (arity {arity}): {cmd}")
 
-def remove_command(name: str, db_dir: Path) -> None:
+def remove_command(name: str, db_dir: Path, bin_dir: str) -> None:
     db = get_db(db_dir)
     init_db(db)
     db.execute("DELETE FROM commands WHERE name = ?", (name,))
     db.execute("DELETE FROM memoized_results WHERE command_name = ?", (name,))
     print(f"Deleted command '{name}'")
+
+    bin_dir_path = Path(bin_dir).expanduser().resolve()
+    wrapper_path = bin_dir_path / name
+
+    if wrapper_path.is_file():
+        # Verify if it's an mze wrapper
+        content = wrapper_path.read_text()
+        if f"mze run {name}" in content:
+            wrapper_path.unlink()
+            print(f"Removed wrapper at {wrapper_path}")
+        else:
+            print(f"Warning: File {wrapper_path} exists but does not appear to be an mze wrapper. Not removing.", file=sys.stderr)
+    else:
+        print(f"Info: No wrapper found at {wrapper_path}")
 
 def run_command(name: str, files: list[str], db_dir: Path) -> None:
     db = get_db(db_dir)

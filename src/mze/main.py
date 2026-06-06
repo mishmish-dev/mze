@@ -5,6 +5,7 @@ from mze.executor import add_command, list_commands, remove_command, run_command
 from mze.install import install_mze
 
 DEFAULT_DB_DIR = Path.home() / ".mze"
+DEFAULT_BIN_DIR = str(Path.home() / ".local" / "bin")
 
 @click.group()
 @click.option("--base-dir", default=str(DEFAULT_DB_DIR), help="Base directory for mze database")
@@ -17,9 +18,11 @@ def main(ctx: click.Context, base_dir: str) -> None:
 @main.command("add", help="Save a command template")
 @click.argument("name")
 @click.argument("cmd")
+@click.option("--install", is_flag=True, help="Install a thin wrapper for this command")
+@click.option("--bin-dir", default=DEFAULT_BIN_DIR, help="Directory for the wrapper executable")
 @click.pass_context
-def add(ctx: click.Context, name: str, cmd: str) -> None:
-    add_command(name, cmd, ctx.obj["base_dir"])
+def add(ctx: click.Context, name: str, cmd: str, install: bool, bin_dir: str) -> None:
+    add_command(name, cmd, ctx.obj["base_dir"], install=install, bin_dir=bin_dir)
 
 @main.command("run", help="Run a saved command with files")
 @click.argument("name")
@@ -35,13 +38,14 @@ def list_cmds(ctx: click.Context) -> None:
 
 @main.command("remove", help="Delete a saved command")
 @click.argument("name")
+@click.option("--bin-dir", default=DEFAULT_BIN_DIR, help="Directory of the wrapper executable to remove")
 @click.pass_context
-def remove(ctx: click.Context, name: str) -> None:
-    remove_command(name, ctx.obj["base_dir"])
+def remove(ctx: click.Context, name: str, bin_dir: str) -> None:
+    remove_command(name, ctx.obj["base_dir"], bin_dir=bin_dir)
 
 @main.command("install", help="Install mze environment and wrapper")
 @click.option("--base-dir", default=str(DEFAULT_DB_DIR), help="Base directory for the mze environment")
-@click.option("--bin-dir", default=str(Path.home() / ".local" / "bin"), help="Directory for the wrapper executable")
+@click.option("--bin-dir", default=DEFAULT_BIN_DIR, help="Directory for the wrapper executable")
 def install(base_dir: str, bin_dir: str) -> None:
     install_mze(base_dir, bin_dir)
 

@@ -14,13 +14,18 @@ uv run mze [command] [args]
 
 #### Add a command template
 ```bash
-uv run mze add <name> "<template>"
+uv run mze add <name> "<template>" [--install] [--bin-dir <dir>]
 ```
 Templates use Python format string syntax. For example:
 ```bash
 uv run mze add my-tool "cat {}"
 uv run mze add multi-tool "diff {0} {1}"
 ```
+You can optionally register a command user-wise, making it runnable directly as `<name>`:
+```bash
+uv run mze add my-tool "cat {}" --install
+```
+This creates a small executable in your bin directory (default: `~/.local/bin`) that calls the command directly.
 
 #### Run a saved command
 ```bash
@@ -35,8 +40,9 @@ uv run mze list
 
 #### Remove a saved command
 ```bash
-uv run mze remove <name>
+uv run mze remove <name> [--bin-dir <dir>]
 ```
+Removes a saved command template and, if registered user-wise, also removes the executable.
 
 #### Install mze as a tool
 Install `mze` into a dedicated environment and create a wrapper script in your bin directory. Run this from the project root:
