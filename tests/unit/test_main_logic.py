@@ -1,5 +1,5 @@
 import pytest
-from mze.main import parse_template
+from mze.executor import parse_template
 
 def test_parse_template_automatic():
     assert parse_template("echo {}") == 1

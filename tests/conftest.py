@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-import mze.main
+import mze.executor
 
 @pytest.fixture(scope="session")
 def session_db_dir(tmp_path_factory):
@@ -14,8 +14,8 @@ def db_conn(session_db_dir):
     """
     Provides a DuckDB connection and ensures the database is initialized.
     """
-    conn = mze.main.get_db(session_db_dir)
-    mze.main.init_db(conn)
+    conn = mze.executor.get_db(session_db_dir)
+    mze.executor.init_db(conn)
     yield conn
     conn.close()
 

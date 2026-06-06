@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from mze.main import add_command, run_command, MAX_OUTPUT_SIZE
+from mze.executor import add_command, run_command, MAX_OUTPUT_SIZE
 
 def test_arity_mismatch(tmp_path, clean_db):
     add_command("two-args", "diff {0} {1}", clean_db)
