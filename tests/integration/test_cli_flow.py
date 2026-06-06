@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from mze.main import save_command, run_command, list_commands, delete_command
+from mze.main import add_command, run_command, list_commands, remove_command
 
 def test_save_run_cache_lifecycle(tmp_path, clean_db):
     f1 = tmp_path / "test1.txt"
     f1.write_text("content 1")
     f1_path = str(f1)
 
-    save_command("my-cat", "cat {}", clean_db)
+    add_command("my-cat", "cat {}", clean_db)
 
     # Mock subprocess.run to track calls
     with patch("subprocess.run") as mock_run:
@@ -36,22 +36,22 @@ def test_save_run_cache_lifecycle(tmp_path, clean_db):
         assert e.value.code == 0
         assert mock_run.call_count == 2
 
-def test_delete_command(clean_db):
-    save_command("to-delete", "echo {}", clean_db)
+def test_remove_command(clean_db):
+    add_command("to-remove", "echo {}", clean_db)
 
     # Save some results to memoize
     # Since we can't easily run real commands without files,
     # we can just check if the command is gone from the table.
     list_commands(clean_db)
 
-    delete_command("to-delete", clean_db)
+    remove_command("to-remove", clean_db)
 
     # Now run it, should fail
     with pytest.raises(SystemExit) as e:
-        run_command("to-delete", ["somefile"], clean_db)
+        run_command("to-remove", ["somefile"], clean_db)
     assert e.value.code == 1
 
 def test_list_commands(clean_db):
-    save_command("cmd1", "echo {0}", clean_db)
-    save_command("cmd2", "ls {0}", clean_db)
+    add_command("cmd1", "echo {0}", clean_db)
+    add_command("cmd2", "ls {0}", clean_db)
     list_commands(clean_db)

@@ -1,9 +1,9 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from mze.main import save_command, run_command, MAX_OUTPUT_SIZE
+from mze.main import add_command, run_command, MAX_OUTPUT_SIZE
 
 def test_arity_mismatch(tmp_path, clean_db):
-    save_command("two-args", "diff {0} {1}", clean_db)
+    add_command("two-args", "diff {0} {1}", clean_db)
     f1 = tmp_path / "f1.txt"
     f1.write_text("a")
 
@@ -22,7 +22,7 @@ def test_arity_mismatch(tmp_path, clean_db):
     assert e.value.code == 1
 
 def test_non_zero_exit_code(tmp_path, clean_db):
-    save_command("fail-cmd", "false", clean_db) # 'false' always returns 1
+    add_command("fail-cmd", "false", clean_db) # 'false' always returns 1
     f1 = tmp_path / "f1.txt"
     f1.write_text("a")
 
@@ -31,7 +31,7 @@ def test_non_zero_exit_code(tmp_path, clean_db):
     assert e.value.code == 1
 
 def test_stderr_capture(tmp_path, clean_db):
-    save_command("err-cmd", "echo 'error' >&2", clean_db)
+    add_command("err-cmd", "echo 'error' >&2", clean_db)
     f1 = tmp_path / "f1.txt"
     f1.write_text("a")
 
@@ -49,7 +49,7 @@ def test_stderr_capture(tmp_path, clean_db):
             mock_stderr.assert_called()
 
 def test_max_output_size(tmp_path, clean_db):
-    save_command("big-cmd", "cat {}", clean_db)
+    add_command("big-cmd", "cat {}", clean_db)
     f1 = tmp_path / "big.txt"
     # Create a file slightly larger than MAX_OUTPUT_SIZE
     f1.write_bytes(b"x" * (MAX_OUTPUT_SIZE + 1))

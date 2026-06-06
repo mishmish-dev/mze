@@ -74,7 +74,7 @@ def init_db(db: duckdb.DuckDBPyConnection) -> None:
         )
     """)
 
-def save_command(name: str, cmd: str, db_dir: Path) -> None:
+def add_command(name: str, cmd: str, db_dir: Path) -> None:
     try:
         arity = parse_template(cmd)
     except ValueError as e:
@@ -96,7 +96,7 @@ def list_commands(db_dir: Path) -> None:
     for name, cmd, arity in results:
         print(f"{name} (arity {arity}): {cmd}")
 
-def delete_command(name: str, db_dir: Path) -> None:
+def remove_command(name: str, db_dir: Path) -> None:
     db = get_db(db_dir)
     init_db(db)
     db.execute("DELETE FROM commands WHERE name = ?", (name,))
@@ -215,12 +215,12 @@ def main(ctx: click.Context, base_dir: str) -> None:
     ctx.ensure_object(dict)
     ctx.obj["base_dir"] = Path(base_dir).expanduser().resolve()
 
-@main.command("save", help="Save a command template")
+@main.command("add", help="Save a command template")
 @click.argument("name")
 @click.argument("cmd")
 @click.pass_context
-def save(ctx: click.Context, name: str, cmd: str) -> None:
-    save_command(name, cmd, ctx.obj["base_dir"])
+def add(ctx: click.Context, name: str, cmd: str) -> None:
+    add_command(name, cmd, ctx.obj["base_dir"])
 
 @main.command("run", help="Run a saved command with files")
 @click.argument("name")
@@ -234,11 +234,11 @@ def run(ctx: click.Context, name: str, files: tuple[str, ...]) -> None:
 def list_cmds(ctx: click.Context) -> None:
     list_commands(ctx.obj["base_dir"])
 
-@main.command("delete", help="Delete a saved command")
+@main.command("remove", help="Delete a saved command")
 @click.argument("name")
 @click.pass_context
-def delete(ctx: click.Context, name: str) -> None:
-    delete_command(name, ctx.obj["base_dir"])
+def remove(ctx: click.Context, name: str) -> None:
+    remove_command(name, ctx.obj["base_dir"])
 
 @main.command("install", help="Install mze environment and wrapper")
 @click.option("--base-dir", default=str(DEFAULT_DB_DIR), help="Base directory for the mze environment")
