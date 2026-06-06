@@ -1,7 +1,8 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
-import os
+
 
 def install_mze(base_dir: str, bin_dir: str) -> None:
     base_dir_path = Path(base_dir).expanduser().resolve()
@@ -14,7 +15,10 @@ def install_mze(base_dir: str, bin_dir: str) -> None:
         base_dir_path.mkdir(parents=True, exist_ok=True)
 
         if not Path("pyproject.toml").exists():
-            print("Error: pyproject.toml not found in current directory. Please run this command from the project root.", file=sys.stderr)
+            print(
+                "Error: pyproject.toml not found in current directory. Please run this command from the project root.",
+                file=sys.stderr,
+            )
             sys.exit(1)
 
         env = {"UV_PROJECT_ENVIRONMENT": str(venv_path), **os.environ}
@@ -27,7 +31,7 @@ def install_mze(base_dir: str, bin_dir: str) -> None:
 
         # We use the executable created by pip in the venv
         venv_mze_bin = venv_path / "bin" / "mze"
-        wrapper_content = f"#!/bin/sh\nexec {venv_mze_bin} \"$@\"\n"
+        wrapper_content = f'#!/bin/sh\nexec {venv_mze_bin} "$@"\n'
         wrapper_path.write_text(wrapper_content)
         wrapper_path.chmod(0o755)
 

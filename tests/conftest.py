@@ -1,6 +1,7 @@
 import pytest
-from pathlib import Path
+
 import mze.executor
+
 
 @pytest.fixture(scope="session")
 def session_db_dir(tmp_path_factory):
@@ -8,6 +9,7 @@ def session_db_dir(tmp_path_factory):
     Creates a temporary directory for the database for the entire test session.
     """
     return tmp_path_factory.mktemp("mze_db")
+
 
 @pytest.fixture
 def db_conn(session_db_dir):
@@ -18,6 +20,7 @@ def db_conn(session_db_dir):
     mze.executor.init_db(conn)
     yield conn
     conn.close()
+
 
 @pytest.fixture
 def clean_db(db_conn, session_db_dir):

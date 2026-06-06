@@ -1,6 +1,9 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from mze.executor import add_command, run_command, MAX_OUTPUT_SIZE
+
+from mze.executor import MAX_OUTPUT_SIZE, add_command, run_command
+
 
 def test_arity_mismatch(tmp_path, clean_db):
     add_command("two-args", "diff {0} {1}", clean_db)
@@ -21,8 +24,9 @@ def test_arity_mismatch(tmp_path, clean_db):
         run_command("two-args", [str(f1), str(f2), str(f3)], clean_db)
     assert e.value.code == 1
 
+
 def test_non_zero_exit_code(tmp_path, clean_db):
-    add_command("fail-cmd", "false", clean_db) # 'false' always returns 1
+    add_command("fail-cmd", "false", clean_db)  # 'false' always returns 1
     f1 = tmp_path / "f1.txt"
     f1.write_text("a")
 
@@ -30,23 +34,21 @@ def test_non_zero_exit_code(tmp_path, clean_db):
         run_command("fail-cmd", [str(f1)], clean_db)
     assert e.value.code == 1
 
+
 def test_stderr_capture(tmp_path, clean_db):
     add_command("err-cmd", "echo 'error' >&2", clean_db)
     f1 = tmp_path / "f1.txt"
     f1.write_text("a")
 
     with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(
-            stdout=b"",
-            stderr=b"error\n",
-            returncode=0
-        )
+        mock_run.return_value = MagicMock(stdout=b"", stderr=b"error\n", returncode=0)
         with patch("sys.stderr.buffer.write") as mock_stderr:
             with pytest.raises(SystemExit) as e:
                 run_command("err-cmd", [], clean_db)
             assert e.value.code == 0
             # Verify stderr was written
             mock_stderr.assert_called()
+
 
 def test_max_output_size(tmp_path, clean_db):
     add_command("big-cmd", "cat {}", clean_db)
@@ -56,9 +58,7 @@ def test_max_output_size(tmp_path, clean_db):
 
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(
-            stdout=b"x" * (MAX_OUTPUT_SIZE + 1),
-            stderr=b"",
-            returncode=0
+            stdout=b"x" * (MAX_OUTPUT_SIZE + 1), stderr=b"", returncode=0
         )
 
         # First run (Miss)

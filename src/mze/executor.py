@@ -1,16 +1,17 @@
-import subprocess
-import sys
-import duckdb
 import shlex
 import shutil
-import os
+import subprocess
+import sys
 from pathlib import Path
 from string import Formatter
+
+import duckdb
 
 from mze.file_list_hash import compute_hash
 
 DEFAULT_DB_DIR = Path.home() / ".mze"
 MAX_OUTPUT_SIZE = 10 * 1024 * 1024  # 10 MiB
+
 
 def parse_template(template: str) -> int:
     """
@@ -29,7 +30,9 @@ def parse_template(template: str) -> int:
         has_auto = any(f[1] == "" for f in fields if f[1] is not None)
         has_explicit = any(f[1].isdigit() for f in fields if f[1] is not None)
         if has_auto and has_explicit:
-            raise ValueError("Cannot mix automatic and explicit positional arguments in template")
+            raise ValueError(
+                "Cannot mix automatic and explicit positional arguments in template"
+            )
 
         for literal_text, field_name, format_spec, conversion in fields:
             if field_name is not None:
@@ -39,7 +42,10 @@ def parse_template(template: str) -> int:
                     idx = int(field_name)
                     max_arity = max(max_arity, idx + 1)
                 else:
-                    raise ValueError(f"Invalid field name '{{{field_name}}}'; only numbers or empty braces are allowed")
+                    raise ValueError(
+                        f"Invalid field name '{{{field_name}}}'; "
+                        "only numbers or empty braces are allowed"
+                    )
 
         if has_explicit:
             return max_arity
@@ -51,10 +57,12 @@ def parse_template(template: str) -> int:
     except Exception as e:
         raise ValueError(f"Invalid template syntax: {e}")
 
+
 def get_db(db_dir: Path = DEFAULT_DB_DIR) -> duckdb.DuckDBPyConnection:
     db_path = db_dir / "mze.duckdb"
     db_dir.mkdir(parents=True, exist_ok=True)
     return duckdb.connect(str(db_path))
+
 
 def init_db(db: duckdb.DuckDBPyConnection) -> None:
     db.execute("""
@@ -74,7 +82,10 @@ def init_db(db: duckdb.DuckDBPyConnection) -> None:
         )
     """)
 
-def add_command(name: str, cmd: str, db_dir: Path, install: bool = False, bin_dir: str = "") -> None:
+
+def add_command(
+    name: str, cmd: str, db_dir: Path, install: bool = False, bin_dir: str = ""
+) -> None:
     try:
         arity = parse_template(cmd)
     except ValueError as e:
@@ -83,7 +94,10 @@ def add_command(name: str, cmd: str, db_dir: Path, install: bool = False, bin_di
 
     db = get_db(db_dir)
     init_db(db)
-    db.execute("INSERT OR REPLACE INTO commands (name, command_template, arity) VALUES (?, ?, ?)", (name, cmd, arity))
+    db.execute(
+        "INSERT OR REPLACE INTO commands (name, command_template, arity) VALUES (?, ?, ?)",
+        (name, cmd, arity),
+    )
     print(f"Saved command '{name}' with arity {arity}")
 
     if install:
@@ -93,11 +107,14 @@ def add_command(name: str, cmd: str, db_dir: Path, install: bool = False, bin_di
         # The instruction was: "Check that mze executable is really present in bin_dir, error if not."
         mze_path = bin_dir_path / "mze"
         if not mze_path.is_file():
-            print(f"Error: mze executable not found in {bin_dir_path}, run 'mze install' first", file=sys.stderr)
+            print(
+                f"Error: mze executable not found in {bin_dir_path}, run 'mze install' first",
+                file=sys.stderr,
+            )
             return
 
         wrapper_path = bin_dir_path / name
-        wrapper_content = f"#!/bin/sh\nexec {mze_path} run {name} \"$@\"\n"
+        wrapper_content = f'#!/bin/sh\nexec {mze_path} run {name} "$@"\n'
 
         try:
             bin_dir_path.mkdir(parents=True, exist_ok=True)
@@ -107,20 +124,27 @@ def add_command(name: str, cmd: str, db_dir: Path, install: bool = False, bin_di
 
             # Check if registered in PATH
             if shutil.which(name) != str(wrapper_path):
-                print(f"Warning: {name} might not be in your PATH or is shadowed by another command. Ensure {bin_dir_path} is in your PATH.", file=sys.stderr)
+                print(
+                    f"Warning: {name} might not be in your PATH or is shadowed by another command. Ensure {bin_dir_path} is in your PATH.",
+                    file=sys.stderr,
+                )
 
         except Exception as e:
             print(f"Error creating wrapper: {e}", file=sys.stderr)
 
+
 def list_commands(db_dir: Path) -> None:
     db = get_db(db_dir)
     init_db(db)
-    results = db.execute("SELECT name, command_template, arity FROM commands").fetchall()
+    results = db.execute(
+        "SELECT name, command_template, arity FROM commands"
+    ).fetchall()
     if not results:
         print("No commands saved.")
         return
     for name, cmd, arity in results:
         print(f"{name} (arity {arity}): {cmd}")
+
 
 def remove_command(name: str, db_dir: Path, bin_dir: str) -> None:
     db = get_db(db_dir)
@@ -139,15 +163,21 @@ def remove_command(name: str, db_dir: Path, bin_dir: str) -> None:
             wrapper_path.unlink()
             print(f"Removed wrapper at {wrapper_path}")
         else:
-            print(f"Warning: File {wrapper_path} exists but does not appear to be an mze wrapper. Not removing.", file=sys.stderr)
+            print(
+                f"Warning: File {wrapper_path} exists but does not appear to be an mze wrapper. Not removing.",
+                file=sys.stderr,
+            )
     else:
         print(f"Info: No wrapper found at {wrapper_path}")
+
 
 def run_command(name: str, files: list[str], db_dir: Path) -> None:
     db = get_db(db_dir)
     init_db(db)
 
-    res = db.execute("SELECT command_template, arity FROM commands WHERE name = ?", (name,)).fetchone()
+    res = db.execute(
+        "SELECT command_template, arity FROM commands WHERE name = ?", (name,)
+    ).fetchone()
     if not res:
         print(f"Command '{name}' not found.", file=sys.stderr)
         sys.exit(1)
@@ -155,7 +185,10 @@ def run_command(name: str, files: list[str], db_dir: Path) -> None:
     cmd_template, arity = res
 
     if len(files) != arity:
-        print(f"Command '{name}' expects {arity} files, but {len(files)} were provided.", file=sys.stderr)
+        print(
+            f"Command '{name}' expects {arity} files, but {len(files)} were provided.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     try:
@@ -169,7 +202,10 @@ def run_command(name: str, files: list[str], db_dir: Path) -> None:
     key = compute_hash(files)
 
     # Check memoized results
-    memo = db.execute("SELECT output FROM memoized_results WHERE command_name = ? AND file_contents_hash = ?", (name, key)).fetchone()
+    memo = db.execute(
+        "SELECT output FROM memoized_results WHERE command_name = ? AND file_contents_hash = ?",
+        (name, key),
+    ).fetchone()
     if memo:
         # Memoized result found
         output = memo[0]
@@ -177,14 +213,13 @@ def run_command(name: str, files: list[str], db_dir: Path) -> None:
             sys.stdout.buffer.write(output)
             return
 
-
     # Run the command
     try:
         process = subprocess.run(
             full_cmd,
             shell=True,
             capture_output=True,
-            check=False # We want to capture stdout/stderr regardless of exit code
+            check=False,  # We want to capture stdout/stderr regardless of exit code
         )
         stdout = process.stdout
         stderr = process.stderr
@@ -193,8 +228,10 @@ def run_command(name: str, files: list[str], db_dir: Path) -> None:
 
         # Store if within size limit
         if len(result_output) <= MAX_OUTPUT_SIZE:
-            db.execute("INSERT OR REPLACE INTO memoized_results (command_name, file_contents_hash, output) VALUES (?, ?, ?)",
-                      (name, key, result_output))
+            db.execute(
+                "INSERT OR REPLACE INTO memoized_results (command_name, file_contents_hash, output) VALUES (?, ?, ?)",
+                (name, key, result_output),
+            )
 
         sys.stdout.buffer.write(result_output)
         if stderr:

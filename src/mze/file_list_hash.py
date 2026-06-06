@@ -1,5 +1,6 @@
 import mmap
 from pathlib import Path
+
 from blake3 import blake3
 
 
@@ -33,7 +34,7 @@ def compute_hash(files: list[str]) -> bytes:
                     # still zero-copy at OS page level
                     chunk_size = 1024 * 1024  # 1MB slices for stable throughput
                     for i in range(0, size, chunk_size):
-                        h.update(view[i:i + chunk_size])
+                        h.update(view[i : i + chunk_size])
                 finally:
                     view.release()
             finally:

@@ -1,6 +1,5 @@
-import pytest
-from pathlib import Path
 from mze.file_list_hash import compute_hash
+
 
 def test_compute_hash_consistency(tmp_path):
     f1 = tmp_path / "file1.txt"
@@ -13,6 +12,7 @@ def test_compute_hash_consistency(tmp_path):
     hash2 = compute_hash(files)
     assert hash1 == hash2
 
+
 def test_compute_hash_order_sensitivity(tmp_path):
     f1 = tmp_path / "file1.txt"
     f1.write_text("hello world")
@@ -23,6 +23,7 @@ def test_compute_hash_order_sensitivity(tmp_path):
     hash2 = compute_hash([str(f2), str(f1)])
     assert hash1 != hash2
 
+
 def test_compute_hash_content_sensitivity(tmp_path):
     f1 = tmp_path / "file1.txt"
     f1.write_text("hello world")
@@ -32,9 +33,10 @@ def test_compute_hash_content_sensitivity(tmp_path):
     files = [str(f1), str(f2)]
     hash1 = compute_hash(files)
 
-    f1.write_text("hello worle") # change one byte
+    f1.write_text("hello worle")  # change one byte
     hash2 = compute_hash(files)
     assert hash1 != hash2
+
 
 def test_compute_hash_empty_files(tmp_path):
     f1 = tmp_path / "empty1.txt"
@@ -47,9 +49,10 @@ def test_compute_hash_empty_files(tmp_path):
     # Both are empty, so hashes should be identical
     assert hash1 == hash2
 
+
 def test_compute_hash_large_files(tmp_path):
     f1 = tmp_path / "large.txt"
-    content = b"a" * (2 * 1024 * 1024) # 2MB
+    content = b"a" * (2 * 1024 * 1024)  # 2MB
     f1.write_bytes(content)
 
     hash1 = compute_hash([str(f1)])
@@ -57,4 +60,3 @@ def test_compute_hash_large_files(tmp_path):
     # Re-calculate manually if needed or just check consistency
     hash2 = compute_hash([str(f1)])
     assert hash1 == hash2
-

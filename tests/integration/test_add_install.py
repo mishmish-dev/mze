@@ -1,7 +1,7 @@
-import pytest
 import os
-from pathlib import Path
+
 from mze.executor import add_command
+
 
 def test_add_install_success(tmp_path, clean_db):
     bin_dir = tmp_path / "bin"
@@ -24,6 +24,7 @@ def test_add_install_success(tmp_path, clean_db):
 
     # Check permissions (executable)
     assert os.access(wrapper_path, os.X_OK)
+
 
 def test_add_install_failure_no_mze(tmp_path, clean_db):
     bin_dir = tmp_path / "bin"
