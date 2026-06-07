@@ -45,7 +45,7 @@ def test_remove_command(clean_db):
     # we can just check if the command is gone from the table.
     list_commands(clean_db)
 
-    remove_command("to-remove", clean_db)
+    remove_command("to-remove", clean_db, bin_dir=str(clean_db))
 
     # Now run it, should fail
     with pytest.raises(SystemExit) as e:

@@ -68,8 +68,7 @@ def init_db(db: duckdb.DuckDBPyConnection) -> None:
     db.execute("""
         CREATE TABLE IF NOT EXISTS commands (
             name TEXT PRIMARY KEY,
-            command_template TEXT,
-            arity INTEGER
+            command_template TEXT NOT NULL
         )
     """)
     db.execute("""
@@ -95,8 +94,8 @@ def add_command(
     db = get_db(db_dir)
     init_db(db)
     db.execute(
-        "INSERT OR REPLACE INTO commands (name, command_template, arity) VALUES (?, ?, ?)",
-        (name, cmd, arity),
+        "INSERT OR REPLACE INTO commands (name, command_template) VALUES (?, ?)",
+        (name, cmd),
     )
     print(f"Saved command '{name}' with arity {arity}")
 
@@ -137,12 +136,13 @@ def list_commands(db_dir: Path) -> None:
     db = get_db(db_dir)
     init_db(db)
     results = db.execute(
-        "SELECT name, command_template, arity FROM commands"
+        "SELECT name, command_template FROM commands"
     ).fetchall()
     if not results:
         print("No commands saved.")
         return
-    for name, cmd, arity in results:
+    for name, cmd in results:
+        arity = parse_template(cmd)
         print(f"{name} (arity {arity}): {cmd}")
 
 
@@ -176,13 +176,14 @@ def run_command(name: str, files: list[str], db_dir: Path) -> None:
     init_db(db)
 
     res = db.execute(
-        "SELECT command_template, arity FROM commands WHERE name = ?", (name,)
+        "SELECT command_template FROM commands WHERE name = ?", (name,)
     ).fetchone()
     if not res:
         print(f"Command '{name}' not found.", file=sys.stderr)
         sys.exit(1)
 
-    cmd_template, arity = res
+    cmd_template = res[0]
+    arity = parse_template(cmd_template)
 
     if len(files) != arity:
         print(
