@@ -34,3 +34,6 @@ test_empty/
 test_empty_2/
 test_perm/
 test_prefix/
+
+# Rust
+/target

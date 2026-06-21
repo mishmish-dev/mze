@@ -1,0 +1,17 @@
+[package]
+name = "mze"
+version = "0.1.0"
+edition = "2021"
+description = "Memoizing command executor"
+
+[[bin]]
+name = "mze"
+path = "src/main.rs"
+
+[dependencies]
+blake3 = { version = "1", features = ["mmap", "rayon"] }
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[profile.release]
+strip = true
